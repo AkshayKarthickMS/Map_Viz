@@ -414,22 +414,25 @@ Upload `zerodose.csv` (required). This app:
 - Optionally retrain an improved LGA model (sidebar)
 """)
 
-col1, col2, col3 = st.columns([1,1,1])
-with col1:
-    uploaded_zd = st.file_uploader("Upload zerodose.csv (required)", type=["csv"])
-with col2:
-    uploaded_fv = st.file_uploader("Upload facility_visit.csv (optional)", type=["csv"])
-with col3:
-    uploaded_geojson = st.file_uploader("Upload LGAs GeoJSON (optional)", type=["geojson","json"])
+# ----------------------
+# Use local files from the same path (no upload needed)
+# ----------------------
+ZERODOSE_PATH = BASE / "zerodose.csv"
+FV_PATH = BASE / "facility_visit.csv"
+GEOJSON_PATH = BASE / "lgas.geojson"  # adjust name if different
 
-use_local = False
-if uploaded_zd is None:
-    if (BASE / "zerodose.csv").exists():
-        st.info("No upload detected — using local zerodose.csv")
-        use_local = True
-    else:
-        st.warning("Please upload zerodose.csv or place it in the working folder.")
-        st.stop()
+st.markdown("✅ Using local data files from the app directory (no upload required).")
+
+if not ZERODOSE_PATH.exists():
+    st.error("Expected `zerodose.csv` in the working folder, but it was not found.")
+    st.stop()
+
+# For compatibility with the rest of the code, we keep these variable names.
+# `read_csv_safe` and later logic will now read directly from these paths.
+uploaded_zd = ZERODOSE_PATH
+uploaded_fv = FV_PATH if FV_PATH.exists() else None
+uploaded_geojson = GEOJSON_PATH if GEOJSON_PATH.exists() else None
+
 
 # Sidebar controls for retrain + map options
 st.sidebar.header("Retrain & Map options")
