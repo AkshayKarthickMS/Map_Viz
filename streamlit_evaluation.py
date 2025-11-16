@@ -762,6 +762,9 @@ if st.button("Run analysis (aggregate + model predict)"):
         st.subheader("Settlement cluster map (grouped by LGA colours)")
         if not pts_for_cluster.empty:
             sp = pts_for_cluster.copy()
+            # precompute formatted avg_prob text for tooltip (important: do this BEFORE slicing into parts)
+            sp['avg_prob_text'] = sp['avg_prob'].apply(lambda x: f"{x:.2f}" if not pd.isna(x) else "n/a")
+
             # group by LGA and map to 3 colours
             sp['LGA_norm'] = sp['LGA'].astype(str).str.strip()
             unique_lgas = list(sp['LGA_norm'].unique())
@@ -771,11 +774,13 @@ if st.button("Run analysis (aggregate + model predict)"):
             # radius scaled by high-risk children
             max_hr = sp['high_risk_children'].replace(0, np.nan).max() or 1
             sp['map_radius'] = sp['high_risk_children'].apply(lambda x: (float(x) / max_hr) * 300 + 20)
+
             # prepare layers: one ScatterplotLayer per LGA to guarantee colour separation
             cluster_layers = []
             text_layers = []
             center_lat = float(sp['latitude'].median())
             center_lon = float(sp['longitude'].median())
+
             for lga in sorted(sp['LGA_norm'].unique()):
                 part = sp[sp['LGA_norm'] == lga].copy()
                 if part.empty:
@@ -809,25 +814,38 @@ if st.button("Run analysis (aggregate + model predict)"):
                         get_offset=[0, -12]
                     )
                     text_layers.append(tlay)
+
             all_layers = cluster_layers + text_layers
             view = pdk.ViewState(latitude=center_lat, longitude=center_lon, zoom=8, pitch=0)
-            tooltip = {"html":"<b>{Settlement}</b><br/>LGA: {LGA}<br/>High-risk children: {high_risk_children}<br/>Avg prob: {avg_prob:.2f}", "style":{"color":"white"}}
-            # Fix tooltip: use avg_prob_text instead of formatting inside the string
-            # so create avg_prob_text field
-            sp['avg_prob_text'] = sp['avg_prob'].apply(lambda x: f"{x:.2f}" if not pd.isna(x) else "n/a")
-            tooltip = {"html":"<b>{Settlement}</b><br/>LGA: {LGA}<br/>High-risk children: {high_risk_children}<br/>Avg prob: {avg_prob_text}", "style":{"color":"white"}}
+
+            # Tooltip now uses the precomputed avg_prob_text field
+            tooltip = {
+                "html": "<b>{Settlement}</b><br/>"
+                        "LGA: {LGA}<br/>"
+                        "High-risk children: {high_risk_children}<br/>"
+                        "Avg prob: {avg_prob_text}",
+                "style": {"color": "white"}
+            }
+
             st.pydeck_chart(pdk.Deck(layers=all_layers, initial_view_state=view, tooltip=tooltip))
             st.success("Rendered settlement cluster map grouped by LGA colours.")
             # add legend
             legend_html = "<div style='display:flex;flex-wrap:wrap;padding:6px;'>"
             for lga, col in lga_to_color.items():
                 hexc = rgba_to_hex(col)
-                legend_html += f"<div style='margin-right:10px;margin-bottom:6px;display:flex;align-items:center'><div style='width:18px;height:18px;background:{hexc};border-radius:4px;margin-right:6px;'></div><div style='font-size:13px;color:#fff'>{lga}</div></div>"
+                legend_html += (
+                    "<div style='margin-right:10px;margin-bottom:6px;"
+                    "display:flex;align-items:center'>"
+                    f"<div style='width:18px;height:18px;background:{hexc};"
+                    "border-radius:4px;margin-right:6px;'></div>"
+                    f"<div style='font-size:13px;color:#fff'>{lga}</div></div>"
+                )
             legend_html += "</div>"
             st.markdown("**Legend: Settlement colour → LGA**")
             st.markdown(legend_html, unsafe_allow_html=True)
         else:
             st.info("No settlement coordinates matched from the internal list or not enough data for clustering.")
+
 
 
         if 'settlement_agg' in locals() and not settlement_agg.empty:
