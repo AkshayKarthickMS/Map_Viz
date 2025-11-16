@@ -215,22 +215,22 @@ with st.form("single_form"):
     if remaining_features:
         st.markdown("**Other features (including Settlement if present)**")
 
+    # enforce order: LGA first, then Settlement, then all others
+    ordered_remaining: List[str] = []
+    if 'LGA' in remaining_features:
+        ordered_remaining.append('LGA')
+    if 'Settlement' in remaining_features:
+        ordered_remaining.append('Settlement')
+    for f in remaining_features:
+        if f not in ('LGA', 'Settlement'):
+            ordered_remaining.append(f)
+
     # fallback settlements (if zero mapping)
     fallback_settlements = local_uniques.get('Settlement', [])
 
-    for f in remaining_features:
-        lga_choices = []
-        if lga_settlement_map:
-            lga_choices = sorted(list(lga_settlement_map.keys()))
-        elif 'LGA' in local_uniques:
-            lga_choices = local_uniques.get('LGA', [])
-            # ensure "missing" present
-        if "missing" not in lga_choices:
-            lga_choices = ["missing"] + lga_choices
-        selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
+    for f in ordered_remaining:
         if f == 'LGA':
             # put the selected_lga value into inputs (we keep the actual selectbox outside the form)
-
             single_inputs['LGA'] = st.session_state.get("selected_lga", "missing")
             st.write(f"Selected LGA (locked for this prediction): **{single_inputs['LGA']}**")
         elif f == 'Settlement':
@@ -248,14 +248,29 @@ with st.form("single_form"):
             if existing and existing in settlement_options:
                 default_idx = settlement_options.index(existing)
             try:
-                single_inputs['Settlement'] = st.selectbox("Settlement (select)", options=settlement_options, index=default_idx, key="form_settlement")
+                single_inputs['Settlement'] = st.selectbox(
+                    "Settlement (select)",
+                    options=settlement_options,
+                    index=default_idx,
+                    key="form_settlement",
+                )
             except Exception:
-                single_inputs['Settlement'] = st.text_input("Settlement (text)", value="missing", key="form_settlement_text")
+                single_inputs['Settlement'] = st.text_input(
+                    "Settlement (text)",
+                    value="missing",
+                    key="form_settlement_text",
+                )
         else:
             if f in numeric_features:
                 default_val = 0.0
                 try:
-                    single_inputs[f] = st.number_input(f"{f} (numeric)", min_value=0.0, value=float(default_val), step=1.0, format="%.2f")
+                    single_inputs[f] = st.number_input(
+                        f"{f} (numeric)",
+                        min_value=0.0,
+                        value=float(default_val),
+                        step=1.0,
+                        format="%.2f",
+                    )
                 except Exception:
                     val = st.text_input(f"{f} (numeric)", value=str(default_val))
                     single_inputs[f] = safe_numeric(val, default=default_val)
@@ -266,14 +281,16 @@ with st.form("single_form"):
                 elif f in local_uniques:
                     choices = ["missing"] + local_uniques[f]
                 else:
-                    if f.lower() == 'gender':
+                    if f.lower() == "gender":
                         choices = ["missing", "Male", "Female", "Other"]
-                    elif f.lower() in ['woman or child', 'woman_or_child', 'womanorchild']:
+                    elif f.lower() in ["woman or child", "woman_or_child", "womanorchild"]:
                         choices = ["missing", "Woman", "Child"]
                     else:
                         choices = ["missing"]
                 try:
-                    single_inputs[f] = st.selectbox(f"{f} (categorical)", options=choices, index=0)
+                    single_inputs[f] = st.selectbox(
+                        f"{f} (categorical)", options=choices, index=0
+                    )
                 except Exception:
                     single_inputs[f] = "missing"
 
