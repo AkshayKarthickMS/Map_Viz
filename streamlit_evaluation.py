@@ -623,6 +623,18 @@ if st.button("Run analysis (aggregate + model predict)"):
             zd['pred_class'] = zd.get('pred_class', 0)
 
         # -----------------------
+        # Prioritization & downloads
+        # -----------------------
+        st.subheader("Prioritization")
+        risk_thresh = 0.20
+        settlement_prob_thresh = 0.60
+        high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
+        # st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
+        st.dataframe(high_lgas[['LGA','total_children','dropoff_rate','predicted_dropoff_rate','recommended_action']].head(200))
+        download_link(high_lgas, "high_risk_lgas.csv", "Download high-risk LGAs CSV")
+        
+        
+        # -----------------------
         # Settlement matching & clusters (now grouped by LGA colours)
         # -----------------------
         st.subheader("Settlement with high priority")
@@ -817,16 +829,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         else:
             st.info("No settlement coordinates matched from the internal list or not enough data for clustering.")
 
-        # -----------------------
-        # Prioritization & downloads
-        # -----------------------
-        st.subheader("Prioritization")
-        risk_thresh = 0.20
-        settlement_prob_thresh = 0.60
-        high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
-        # st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
-        st.dataframe(high_lgas[['LGA','total_children','dropoff_rate','predicted_dropoff_rate','recommended_action']].head(200))
-        download_link(high_lgas, "high_risk_lgas.csv", "Download high-risk LGAs CSV")
+
         if 'settlement_agg' in locals() and not settlement_agg.empty:
             ssum = settlement_agg.copy()
             ssum['high_risk_flag'] = ssum['avg_prob'] >= settlement_prob_thresh
