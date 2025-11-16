@@ -427,13 +427,13 @@ uploaded_geojson = GEOJSON_PATH if GEOJSON_PATH.exists() else None
 
 
 # Sidebar controls for retrain + map options
-st.sidebar.header("Retrain & Map options")
-do_retrain = st.sidebar.checkbox("Enable retrain", value=False)
-min_children = st.sidebar.number_input("min_children for training", min_value=1, value=5, step=1)
-drop_small = st.sidebar.checkbox("Drop LGAs with < min_children", value=False)
-cv_folds = st.sidebar.number_input("CV folds", min_value=2, max_value=10, value=5, step=1)
-n_iter = st.sidebar.number_input("Search iterations", min_value=5, max_value=200, value=30, step=5)
-retrain_button = st.sidebar.button("Run retrain now")
+# st.sidebar.header("Retrain & Map options")
+# do_retrain = st.sidebar.checkbox("Enable retrain", value=False)
+# min_children = st.sidebar.number_input("min_children for training", min_value=1, value=5, step=1)
+# drop_small = st.sidebar.checkbox("Drop LGAs with < min_children", value=False)
+# cv_folds = st.sidebar.number_input("CV folds", min_value=2, max_value=10, value=5, step=1)
+# n_iter = st.sidebar.number_input("Search iterations", min_value=5, max_value=200, value=30, step=5)
+# retrain_button = st.sidebar.button("Run retrain now")
 
 # Map label toggles
 show_lga_labels = st.sidebar.checkbox("Show LGA labels on map", value=True)
