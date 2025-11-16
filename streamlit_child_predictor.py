@@ -219,17 +219,18 @@ with st.form("single_form"):
     fallback_settlements = local_uniques.get('Settlement', [])
 
     for f in remaining_features:
+        lga_choices = []
+        if lga_settlement_map:
+            lga_choices = sorted(list(lga_settlement_map.keys()))
+        elif 'LGA' in local_uniques:
+            lga_choices = local_uniques.get('LGA', [])
+            # ensure "missing" present
+        if "missing" not in lga_choices:
+            lga_choices = ["missing"] + lga_choices
+        selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
         if f == 'LGA':
             # put the selected_lga value into inputs (we keep the actual selectbox outside the form)
-            lga_choices = []
-            if lga_settlement_map:
-                lga_choices = sorted(list(lga_settlement_map.keys()))
-            elif 'LGA' in local_uniques:
-                lga_choices = local_uniques.get('LGA', [])
-            # ensure "missing" present
-            if "missing" not in lga_choices:
-                lga_choices = ["missing"] + lga_choices
-            selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
+
             single_inputs['LGA'] = st.session_state.get("selected_lga", "missing")
             st.write(f"Selected LGA (locked for this prediction): **{single_inputs['LGA']}**")
         elif f == 'Settlement':
