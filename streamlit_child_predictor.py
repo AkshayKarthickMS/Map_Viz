@@ -203,7 +203,7 @@ elif 'LGA' in local_uniques:
 if "missing" not in lga_choices:
     lga_choices = ["missing"] + lga_choices
 
-st.markdown("### Select LGA (choosing an LGA will filter Settlement choices inside the form)")
+st.markdown("### Select LGA")
 selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
 
 # ----------------------
