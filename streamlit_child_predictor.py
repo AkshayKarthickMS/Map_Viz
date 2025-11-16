@@ -6,6 +6,11 @@ Child risk predictor Streamlit app — robust dtype handling with binary flags e
 
 Run:
     streamlit run streamlit_child_predictor.py
+
+Behavior:
+- LGA selector is outside the form (updates immediately).
+- Settlement selectbox inside the form dynamically shows settlements for chosen LGA (via st.session_state).
+- Vaccine flags & Reason flags rendered side-by-side at the end of the form.
 """
 from pathlib import Path
 import base64
@@ -59,18 +64,7 @@ def safe_numeric(val, default=0.0):
     except Exception:
         return default
 
-def safe_categorical(val):
-    if val is None:
-        return "missing"
-    if isinstance(val, float) and np.isnan(val):
-        return "missing"
-    return str(val)
-
 def inspect_pipeline_feature_groups(pipeline) -> Tuple[List[str], List[str], List[str]]:
-    """
-    Inspect a sklearn Pipeline that has a 'pre' ColumnTransformer step.
-    Returns (numeric_cols, categorical_cols, passthrough_cols).
-    """
     numeric_cols, categorical_cols, passthrough_cols = [], [], []
     try:
         pre = pipeline.named_steps.get('pre', None)
@@ -84,7 +78,6 @@ def inspect_pipeline_feature_groups(pipeline) -> Tuple[List[str], List[str], Lis
                 if isinstance(cols, (list, tuple)):
                     passthrough_cols.extend(list(cols))
             else:
-                # try to infer by inner pipeline steps
                 t = transformer
                 if hasattr(t, 'named_steps'):
                     names = " ".join(t.named_steps.keys()).lower()
@@ -95,10 +88,8 @@ def inspect_pipeline_feature_groups(pipeline) -> Tuple[List[str], List[str], Lis
                         if isinstance(cols, (list, tuple)):
                             numeric_cols.extend(list(cols))
                 else:
-                    # fallback
                     if isinstance(cols, (list, tuple)):
                         numeric_cols.extend(list(cols))
-        # dedupe
         return sorted(set(numeric_cols)), sorted(set(categorical_cols)), sorted(set(passthrough_cols))
     except Exception as e:
         logger.warning(f"Pipeline inspection failed: {e}")
@@ -133,16 +124,36 @@ def load_local_uniques(max_unique=200) -> Dict[str, List[str]]:
     except Exception:
         return {}
 
+@st.cache_data
+def load_lga_settlements() -> Dict[str, List[str]]:
+    path = BASE / "zerodose.csv"
+    mapping: Dict[str, List[str]] = {}
+    if not path.exists():
+        return mapping
+    try:
+        df = pd.read_csv(path, dtype=str, low_memory=False)
+        if 'LGA' in df.columns and 'Settlement' in df.columns:
+            df['LGA_norm'] = df['LGA'].astype(str).str.strip()
+            df['Settlement_norm'] = df['Settlement'].astype(str).str.strip()
+            grp = df.groupby('LGA_norm')['Settlement_norm'].unique().to_dict()
+            for k, v in grp.items():
+                cleaned = sorted([s for s in map(str, v) if s and s.lower() != 'nan'])
+                mapping[k] = cleaned
+    except Exception as e:
+        logger.warning(f"Failed to build LGA->Settlement mapping: {e}")
+    return mapping
+
 # ----------------------
 # Load model + introspect
 # ----------------------
 local_uniques = load_local_uniques()
+lga_settlement_map = load_lga_settlements()
 art = load_artifacts()
 model = art.get('model')
 child_features = art.get('features')
 
 if model is None or child_features is None:
-    st.title("🔎 Individual Child Risk Predictor")
+    st.title("Individual Child Risk Predictor")
     st.error("Child model or feature list not found in ./artifacts/. Place `child_dropoff_model.joblib` and `child_features.joblib` there.")
     st.stop()
 
@@ -150,40 +161,18 @@ pipe_numeric, pipe_categorical, pipe_passthrough = inspect_pipeline_feature_grou
 
 # Build sets for numeric/categorical
 numeric_features = set(pipe_numeric)
-# passthrough that should be numeric
 for c in pipe_passthrough:
     if c.startswith('lga_vacc_') or c in REASON_FLAGS or c.startswith('rate_') or c in ['Distance to HF', 'estimated_age_months']:
         numeric_features.add(c)
-# enforce known numeric columns even if pipeline inspection missed them
 for f in child_features:
     if f in ['Distance to HF', 'estimated_age_months'] or f.startswith('lga_vacc_') or f.startswith('rate_') or f in REASON_FLAGS:
         numeric_features.add(f)
-
 numeric_features = sorted(numeric_features)
 
-st.title("🔎 Individual Child Risk Predictor (binary flags enforced)")
-st.markdown("""
-- All **reason flags** and **lga_vacc_*** are treated as binary (0/1).
-- All numeric fields are coerced to float before prediction.
-- Categorical fields use dropdowns.
-""")
+st.title("Individual Child Risk Predictor")
 
-# Optional CSV to populate choices
-st.info("Optional: upload a CSV to populate dropdown choices for categorical fields.")
-uploaded_choices = st.file_uploader("Optional: upload CSV for dropdown choices", type=["csv"], key="choices_uploader")
-batch_choices = {}
-if uploaded_choices is not None:
-    try:
-        tmp_df = pd.read_csv(uploaded_choices, dtype=str, low_memory=False)
-        for c in tmp_df.columns:
-            vals = tmp_df[c].dropna().unique().tolist()
-            if 1 <= len(vals) <= 500:
-                batch_choices[c] = sorted([str(v) for v in vals])
-        st.success("Loaded choice values from uploaded CSV.")
-    except Exception as e:
-        st.warning(f"Could not read uploaded CSV for choices: {e}")
-
-mode = st.radio("Mode", ["Single prediction (form)", "Batch prediction (CSV)"])
+# NOTE: single prediction only
+batch_choices: Dict[str, List[str]] = {}
 
 def prepare_single_from_inputs(single_inputs: Dict[str, Any]) -> pd.DataFrame:
     row = {}
@@ -193,49 +182,81 @@ def prepare_single_from_inputs(single_inputs: Dict[str, Any]) -> pd.DataFrame:
         else:
             row[f] = 0.0 if f in numeric_features else "missing"
     X = pd.DataFrame([row])
-    # numeric coercion
     for c in numeric_features:
         if c in X.columns:
             X[c] = pd.to_numeric(X[c], errors='coerce').fillna(0.0).astype(float)
-    # categorical to string
     for c in X.columns:
         if c not in numeric_features:
             X[c] = X[c].fillna('missing').astype(str)
     return X
 
-def prepare_batch_from_df(df: pd.DataFrame) -> pd.DataFrame:
-    X = pd.DataFrame(index=df.index)
-    for f in child_features:
-        if f in df.columns:
-            X[f] = df[f]
+# ----------------------
+# LGA selectbox OUTSIDE the form (so it updates immediately)
+# ----------------------
+# Determine LGA choices (from zerodose mapping or local uniques)
+lga_choices = []
+if lga_settlement_map:
+    lga_choices = sorted(list(lga_settlement_map.keys()))
+elif 'LGA' in local_uniques:
+    lga_choices = local_uniques.get('LGA', [])
+# ensure "missing" present
+if "missing" not in lga_choices:
+    lga_choices = ["missing"] + lga_choices
+
+st.markdown("### Select LGA (choosing an LGA will filter Settlement choices inside the form)")
+selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
+
+# ----------------------
+# UI - Single prediction form (Settlement reads selected_lga live from session_state)
+# ----------------------
+st.subheader("Single child prediction")
+with st.form("single_form"):
+    single_inputs: Dict[str, Any] = {}
+
+    vaccine_features = [f for f in child_features if f.startswith('lga_vacc_')]
+    reason_features = [f for f in child_features if f in REASON_FLAGS]
+    vaccine_features = [f for f in vaccine_features if f is not None]
+    reason_features = [f for f in reason_features if f is not None]
+
+    remaining_features = [f for f in child_features if f not in set(vaccine_features + reason_features)]
+    if remaining_features:
+        st.markdown("**Other features (including Settlement if present)**")
+
+    # fallback settlements (if zero mapping)
+    fallback_settlements = local_uniques.get('Settlement', [])
+
+    for f in remaining_features:
+        if f == 'LGA':
+            # put the selected_lga value into inputs (we keep the actual selectbox outside the form)
+            single_inputs['LGA'] = st.session_state.get("selected_lga", "missing")
+            st.write(f"Selected LGA (locked for this prediction): **{single_inputs['LGA']}**")
+        elif f == 'Settlement':
+            sel_lga = st.session_state.get("selected_lga", None)
+            settlement_options: List[str] = []
+            if sel_lga and sel_lga != "missing":
+                settlement_options = lga_settlement_map.get(sel_lga, [])
+            if not settlement_options:
+                settlement_options = fallback_settlements.copy()
+            if "missing" not in settlement_options:
+                settlement_options = ["missing"] + settlement_options
+            # default index logic
+            default_idx = 0
+            existing = st.session_state.get("Settlement", None)
+            if existing and existing in settlement_options:
+                default_idx = settlement_options.index(existing)
+            try:
+                single_inputs['Settlement'] = st.selectbox("Settlement (select)", options=settlement_options, index=default_idx, key="form_settlement")
+            except Exception:
+                single_inputs['Settlement'] = st.text_input("Settlement (text)", value="missing", key="form_settlement_text")
         else:
-            X[f] = 0.0 if f in numeric_features else "missing"
-    for c in numeric_features:
-        if c in X.columns:
-            X[c] = pd.to_numeric(X[c], errors='coerce').fillna(0.0).astype(float)
-    for c in X.columns:
-        if c not in numeric_features:
-            X[c] = X[c].fillna('missing').astype(str)
-    return X
-
-# ----------------------
-# UI
-# ----------------------
-if mode == "Single prediction (form)":
-    st.subheader("Single child prediction")
-    with st.form("single_form"):
-        single_inputs: Dict[str, Any] = {}
-        for f in child_features:
-            # Handle binary flags first
-            if f in REASON_FLAGS or f.startswith('lga_vacc_'):
-                # show checkbox (True/False) mapped to 1/0
-                val = st.checkbox(f"{f}", value=False)
-                single_inputs[f] = 1 if val else 0
-            elif f in numeric_features:
-                # other numeric fields
-                single_inputs[f] = st.number_input(f"{f} (numeric)", min_value=0.0, value=0.0, step=1.0, format="%.2f")
+            if f in numeric_features:
+                default_val = 0.0
+                try:
+                    single_inputs[f] = st.number_input(f"{f} (numeric)", min_value=0.0, value=float(default_val), step=1.0, format="%.2f")
+                except Exception:
+                    val = st.text_input(f"{f} (numeric)", value=str(default_val))
+                    single_inputs[f] = safe_numeric(val, default=default_val)
             else:
-                # categorical: dropdown options priority - batch choices, local uniques, defaults
                 choices: Optional[List[str]] = None
                 if f in batch_choices:
                     choices = ["missing"] + batch_choices[f]
@@ -248,74 +269,63 @@ if mode == "Single prediction (form)":
                         choices = ["missing", "Woman", "Child"]
                     else:
                         choices = ["missing"]
-                single_inputs[f] = st.selectbox(f"{f} (categorical)", options=choices, index=0)
-        submitted = st.form_submit_button("Predict")
-    if submitted:
-        try:
-            X_single = prepare_single_from_inputs(single_inputs)
-            # debug view
-            st.caption("Prepared one-row input (dtypes):")
-            st.write({k: str(v) for k, v in X_single.dtypes.to_dict().items()})
-            # Predict
-            if hasattr(model, "predict_proba"):
-                prob = float(model.predict_proba(X_single)[:,1][0])
+                try:
+                    single_inputs[f] = st.selectbox(f"{f} (categorical)", options=choices, index=0)
+                except Exception:
+                    single_inputs[f] = "missing"
+
+    # Vaccine & Reason flags at the end, side-by-side
+    if vaccine_features or reason_features:
+        col_vac, col_reason = st.columns([1, 1])
+        with col_vac:
+            st.markdown("**Vaccine flags**")
+            for f in vaccine_features:
+                try:
+                    val = st.checkbox(f"{f}", value=False)
+                except Exception:
+                    val = False
+                single_inputs[f] = 1 if val else 0
+        with col_reason:
+            st.markdown("**Reason flags**")
+            for f in reason_features:
+                try:
+                    val = st.checkbox(f"{f}", value=False)
+                except Exception:
+                    val = False
+                single_inputs[f] = 1 if val else 0
+
+    submitted = st.form_submit_button("Predict")
+
+# ----------------------
+# On submit: prepare, predict, show results
+# ----------------------
+if submitted:
+    try:
+        X_single = prepare_single_from_inputs(single_inputs)
+
+        # Predict
+        if hasattr(model, "predict_proba"):
+            prob = float(model.predict_proba(X_single)[:,1][0])
+        else:
+            prob = None
+        pred = int(model.predict(X_single)[0])
+        st.markdown("### Prediction")
+        if prob is not None:
+            st.metric("Dropoff probability", f"{prob:.3f}")
+        st.write("Predicted class:", "DROPOFF (likely)" if pred == 1 else "LOW DROPOFF RISK")
+        if prob is not None:
+            if prob >= 0.94:
+                st.warning("High risk — recommend immediate follow-up/outreach.")
+            elif prob >= 0.6:
+                st.info("Moderate risk — consider targeted outreach or reminder.")
             else:
-                prob = None
-            pred = int(model.predict(X_single)[0])
-            st.markdown("### Prediction")
-            if prob is not None:
-                st.metric("Dropoff probability", f"{prob:.3f}")
-            st.write("Predicted class:", "DROPOFF (likely)" if pred == 1 else "LOW DROPOFF RISK")
-            if prob is not None:
-                if prob >= 0.99:
-                    st.warning("High risk — recommend immediate follow-up/outreach.")
-                elif prob >= 0.6:
-                    st.info("Moderate risk — consider targeted outreach or reminder.")
-                else:
-                    st.success("Low risk — routine monitoring.")
-            out = X_single.copy()
-            out['pred_prob'] = prob
-            out['pred_class'] = pred
-            download_link_df(out, "single_child_prediction.csv", "Download prediction (CSV)")
-        except Exception as e:
-            st.error(f"Prediction failed: {e}")
-            logger.exception(e)
+                st.success("Low risk — routine monitoring.")
+        out = X_single.copy()
+        out['pred_prob'] = prob
+        out['pred_class'] = pred
+        download_link_df(out, "single_child_prediction.csv", "Download prediction (CSV)")
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
+        logger.exception(e)
 
-else:
-    st.subheader("Batch prediction (CSV)")
-    st.markdown("Upload a CSV with child records. All binary flags (reason & lga_vacc_*) should be 0/1.")
-    uploaded = st.file_uploader("Upload CSV file", type=["csv"], key="batch_uploader")
-    if uploaded is not None:
-        try:
-            df = pd.read_csv(uploaded, dtype=str, low_memory=False)
-            # Convert known binary columns to 0/1 if strings like 'missing' or blanks appear
-            for col in df.columns:
-                if col in REASON_FLAGS or col.startswith('lga_vacc_'):
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
-            st.write("Sample uploaded data:")
-            st.dataframe(df.head(5))
-            X_batch = prepare_batch_from_df(df)
-            st.write("Prepared features (sample):")
-            st.dataframe(X_batch.head(5))
-            if st.button("Run batch prediction"):
-                if hasattr(model, "predict_proba"):
-                    probs = model.predict_proba(X_batch)[:,1]
-                else:
-                    probs = [None]*len(X_batch)
-                preds = model.predict(X_batch)
-                results = df.copy()
-                results['pred_prob'] = probs
-                results['pred_class'] = preds
-                st.subheader("Batch predictions (sample):")
-                st.dataframe(results.head(10))
-                download_link_df(results, "batch_child_predictions.csv", "Download batch predictions CSV")
-        except Exception as e:
-            st.error(f"Failed to run batch prediction: {e}")
-            logger.exception(e)
 
-st.markdown("---")
-st.markdown("""
-**Important:**  
-- All *reason flags* and `lga_vacc_*` fields are binary (0 or 1).  
-- If you paste rows like the one you showed earlier, replace `'missing'` with `0` for those fields.
-""")
