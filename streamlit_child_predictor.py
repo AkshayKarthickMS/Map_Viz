@@ -194,14 +194,7 @@ def prepare_single_from_inputs(single_inputs: Dict[str, Any]) -> pd.DataFrame:
 # LGA selectbox OUTSIDE the form (so it updates immediately)
 # ----------------------
 # Determine LGA choices (from zerodose mapping or local uniques)
-lga_choices = []
-if lga_settlement_map:
-    lga_choices = sorted(list(lga_settlement_map.keys()))
-elif 'LGA' in local_uniques:
-    lga_choices = local_uniques.get('LGA', [])
-# ensure "missing" present
-if "missing" not in lga_choices:
-    lga_choices = ["missing"] + lga_choices
+
 
 st.markdown("### Select LGA (choosing an LGA will filter Settlement choices inside the form)")
 
@@ -228,6 +221,14 @@ with st.form("single_form"):
     for f in remaining_features:
         if f == 'LGA':
             # put the selected_lga value into inputs (we keep the actual selectbox outside the form)
+            lga_choices = []
+            if lga_settlement_map:
+                lga_choices = sorted(list(lga_settlement_map.keys()))
+            elif 'LGA' in local_uniques:
+                lga_choices = local_uniques.get('LGA', [])
+            # ensure "missing" present
+            if "missing" not in lga_choices:
+                lga_choices = ["missing"] + lga_choices
             selected_lga = st.selectbox("LGA (select)", options=lga_choices, index=0, key="selected_lga")
             single_inputs['LGA'] = st.session_state.get("selected_lga", "missing")
             st.write(f"Selected LGA (locked for this prediction): **{single_inputs['LGA']}**")
