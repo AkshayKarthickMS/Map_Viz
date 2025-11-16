@@ -229,7 +229,6 @@ with st.form("single_form"):
         if f == 'LGA':
             # put the selected_lga value into inputs (we keep the actual selectbox outside the form)
             single_inputs['LGA'] = st.session_state.get("selected_lga", "missing")
-            st.write(f"Selected LGA (locked for this prediction): **{single_inputs['LGA']}**")
         elif f == 'Settlement':
             sel_lga = st.session_state.get("selected_lga", None)
             settlement_options: List[str] = []
