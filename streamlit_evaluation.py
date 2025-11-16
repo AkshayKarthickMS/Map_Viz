@@ -625,68 +625,68 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # Settlement matching & clusters (now grouped by LGA colours)
         # -----------------------
-        st.subheader("Settlement matching & top-settlement priority")
-        def lookup_settlement_coord(name: str) -> Tuple[Optional[float], Optional[float]]:
-            if not isinstance(name, str) or name.strip() == "":
-                return (np.nan, np.nan)
-            k = name.strip().lower()
-            if k in SETTLEMENT_COORDS:
-                return SETTLEMENT_COORDS[k]
-            k2 = ''.join(ch for ch in k if ch.isalnum() or ch.isspace()).strip()
-            if k2 in SETTLEMENT_COORDS:
-                return SETTLEMENT_COORDS[k2]
-            for sk, coords in SETTLEMENT_COORDS.items():
-                if sk.startswith(k2) or k2.startswith(sk):
-                    return coords
-            return (np.nan, np.nan)
+        # st.subheader("Settlement matching & top-settlement priority")
+        # def lookup_settlement_coord(name: str) -> Tuple[Optional[float], Optional[float]]:
+        #     if not isinstance(name, str) or name.strip() == "":
+        #         return (np.nan, np.nan)
+        #     k = name.strip().lower()
+        #     if k in SETTLEMENT_COORDS:
+        #         return SETTLEMENT_COORDS[k]
+        #     k2 = ''.join(ch for ch in k if ch.isalnum() or ch.isspace()).strip()
+        #     if k2 in SETTLEMENT_COORDS:
+        #         return SETTLEMENT_COORDS[k2]
+        #     for sk, coords in SETTLEMENT_COORDS.items():
+        #         if sk.startswith(k2) or k2.startswith(sk):
+        #             return coords
+        #     return (np.nan, np.nan)
 
-        if 'Settlement' in zd.columns:
-            zd['Settlement_norm'] = zd['Settlement'].astype(str).str.strip().str.lower()
-            zd['settlement_lat'], zd['settlement_lon'] = zip(*zd['Settlement_norm'].apply(lambda s: lookup_settlement_coord(s)))
-            settlement_agg = zd.groupby('Settlement').agg(
-                LGA=('LGA','first'),
-                total_children=('pred_class','count'),
-                high_risk_children=('pred_prob', lambda s: (s >= 0.6).sum() if s.notna().any() else 0),
-                avg_prob=('pred_prob','mean')
-            ).reset_index().sort_values(['high_risk_children','avg_prob'], ascending=[False,False])
-            # attach coords
-            def attach_coords(r):
-                lat, lon = lookup_settlement_coord(str(r['Settlement']))
-                return pd.Series({'latitude': lat, 'longitude': lon})
-            coords_df = settlement_agg.apply(attach_coords, axis=1)
-            settlement_agg = pd.concat([settlement_agg, coords_df], axis=1)
-            # compute distance to LGA centroid (if builtin centroid exists)
-            lga_centroid_map = {k.strip().upper(): v for k, v in BUILTIN_LGA_COORDS.items()}
-            def dist_to_centroid(row):
-                lat = row['latitude']; lon = row['longitude']; lga = row['LGA']
-                if pd.isna(lat) or pd.isna(lon):
-                    return np.nan
-                cent = lga_centroid_map.get(str(lga).strip().upper())
-                if not cent:
-                    return np.nan
-                return haversine_km(lat, lon, cent['latitude'], cent['longitude'])
-            settlement_agg['dist_to_lga_km'] = settlement_agg.apply(dist_to_centroid, axis=1)
-            st.dataframe(settlement_agg.head(200))
-            download_link(settlement_agg, "settlement_priority.csv", "Download settlement priority CSV")
-            # clustering settlements by location + avg_prob to help visualization (kept for continuity)
-            pts_for_cluster = settlement_agg.dropna(subset=['latitude','longitude']).copy()
-            if not pts_for_cluster.empty:
-                try:
-                    cluster_features = pts_for_cluster[['latitude','longitude','avg_prob']].fillna(0).astype(float)
-                    # keep original KMeans attempt if needed elsewhere (we won't rely on its clusters for colour)
-                    if len(pts_for_cluster) >= n_clusters:
-                        km = KMeans(n_clusters=n_clusters, random_state=42)
-                        pts_for_cluster['kmeans_cluster'] = km.fit_predict(cluster_features)
-                    else:
-                        pts_for_cluster['kmeans_cluster'] = 0
-                except Exception:
-                    pts_for_cluster['kmeans_cluster'] = 0
-            else:
-                pts_for_cluster = pd.DataFrame()
-        else:
-            st.info("No 'Settlement' column in zerodose.csv — cannot compute per-settlement aggregates.")
-            settlement_agg = pd.DataFrame()
-            pts_for_cluster = pd.DataFrame()
+        # if 'Settlement' in zd.columns:
+        #     zd['Settlement_norm'] = zd['Settlement'].astype(str).str.strip().str.lower()
+        #     zd['settlement_lat'], zd['settlement_lon'] = zip(*zd['Settlement_norm'].apply(lambda s: lookup_settlement_coord(s)))
+        #     settlement_agg = zd.groupby('Settlement').agg(
+        #         LGA=('LGA','first'),
+        #         total_children=('pred_class','count'),
+        #         high_risk_children=('pred_prob', lambda s: (s >= 0.6).sum() if s.notna().any() else 0),
+        #         avg_prob=('pred_prob','mean')
+        #     ).reset_index().sort_values(['high_risk_children','avg_prob'], ascending=[False,False])
+        #     # attach coords
+        #     def attach_coords(r):
+        #         lat, lon = lookup_settlement_coord(str(r['Settlement']))
+        #         return pd.Series({'latitude': lat, 'longitude': lon})
+        #     coords_df = settlement_agg.apply(attach_coords, axis=1)
+        #     settlement_agg = pd.concat([settlement_agg, coords_df], axis=1)
+        #     # compute distance to LGA centroid (if builtin centroid exists)
+        #     lga_centroid_map = {k.strip().upper(): v for k, v in BUILTIN_LGA_COORDS.items()}
+        #     def dist_to_centroid(row):
+        #         lat = row['latitude']; lon = row['longitude']; lga = row['LGA']
+        #         if pd.isna(lat) or pd.isna(lon):
+        #             return np.nan
+        #         cent = lga_centroid_map.get(str(lga).strip().upper())
+        #         if not cent:
+        #             return np.nan
+        #         return haversine_km(lat, lon, cent['latitude'], cent['longitude'])
+        #     settlement_agg['dist_to_lga_km'] = settlement_agg.apply(dist_to_centroid, axis=1)
+        #     st.dataframe(settlement_agg.head(200))
+        #     download_link(settlement_agg, "settlement_priority.csv", "Download settlement priority CSV")
+        #     # clustering settlements by location + avg_prob to help visualization (kept for continuity)
+        #     pts_for_cluster = settlement_agg.dropna(subset=['latitude','longitude']).copy()
+        #     if not pts_for_cluster.empty:
+        #         try:
+        #             cluster_features = pts_for_cluster[['latitude','longitude','avg_prob']].fillna(0).astype(float)
+        #             # keep original KMeans attempt if needed elsewhere (we won't rely on its clusters for colour)
+        #             if len(pts_for_cluster) >= n_clusters:
+        #                 km = KMeans(n_clusters=n_clusters, random_state=42)
+        #                 pts_for_cluster['kmeans_cluster'] = km.fit_predict(cluster_features)
+        #             else:
+        #                 pts_for_cluster['kmeans_cluster'] = 0
+        #         except Exception:
+        #             pts_for_cluster['kmeans_cluster'] = 0
+        #     else:
+        #         pts_for_cluster = pd.DataFrame()
+        # else:
+        #     st.info("No 'Settlement' column in zerodose.csv — cannot compute per-settlement aggregates.")
+        #     settlement_agg = pd.DataFrame()
+        #     pts_for_cluster = pd.DataFrame()
 
         # -----------------------
         # LGA centroid map with labels (pydeck)
@@ -824,7 +824,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         risk_thresh = 0.20
         settlement_prob_thresh = 0.60
         high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
-        st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
+        # st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
         st.dataframe(high_lgas[['LGA','total_children','dropoff_rate','predicted_dropoff_rate','recommended_action']].head(200))
         download_link(high_lgas, "high_risk_lgas.csv", "Download high-risk LGAs CSV")
         if 'settlement_agg' in locals() and not settlement_agg.empty:
