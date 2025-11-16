@@ -403,16 +403,9 @@ child_features = art.get('child_features')
 # ----------------------
 # Streamlit UI
 # ----------------------
-st.set_page_config(page_title="LGA & Settlement Analyzer + Labels & Clusters", layout="wide")
-st.title("🏘️ LGA & Settlement Dropoff Analyzer — Labels & Clusters")
-st.markdown("""
-Upload `zerodose.csv` (required). This app:
-- Aggregates to LGA & settlement
-- Uses builtin coordinates for Gabasawa, Kiru, Ungogo and settlement list
-- Loads existing artifacts from `./artifacts/`
-- Shows LGA labels and settlement clusters on maps
-- Optionally retrain an improved LGA model (sidebar)
-""")
+st.set_page_config(page_title="LGA & Settlement Analyzer", layout="wide")
+st.title("LGA & Settlement Dropoff Analyzer")
+
 
 # ----------------------
 # Use local files from the same path (no upload needed)
@@ -421,7 +414,6 @@ ZERODOSE_PATH = BASE / "zerodose.csv"
 FV_PATH = BASE / "facility_visit.csv"
 GEOJSON_PATH = BASE / "lgas.geojson"  # adjust name if different
 
-st.markdown("✅ Using local data files from the app directory (no upload required).")
 
 if not ZERODOSE_PATH.exists():
     st.error("Expected `zerodose.csv` in the working folder, but it was not found.")
