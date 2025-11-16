@@ -622,9 +622,9 @@ if st.button("Run analysis (aggregate + model predict)"):
             zd['pred_prob'] = zd.get('pred_prob', 0.0)
             zd['pred_class'] = zd.get('pred_class', 0)
 
-        -----------------------
-        Settlement matching & clusters (now grouped by LGA colours)
-        -----------------------
+        # -----------------------
+        # Settlement matching & clusters (now grouped by LGA colours)
+        # -----------------------
         st.subheader("Settlement matching & top-settlement priority")
         def lookup_settlement_coord(name: str) -> Tuple[Optional[float], Optional[float]]:
             if not isinstance(name, str) or name.strip() == "":
