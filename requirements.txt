@@ -1,0 +1,13 @@
+# Use Python 3.11
+
+streamlit==1.51.0        # Streamlit app framework (supports Python 3.11) :contentReference[oaicite:0]{index=0}
+numpy==2.3.4             # Core numerical arrays (Py>=3.11 only) :contentReference[oaicite:1]{index=1}
+pandas==2.3.3            # DataFrames (supports Python 3.11) :contentReference[oaicite:2]{index=2}
+scikit-learn==1.7.2      # ML models / metrics / KMeans / RF etc. :contentReference[oaicite:3]{index=3}
+matplotlib==3.10.7       # Plotting (cp311 wheels available) :contentReference[oaicite:4]{index=4}
+seaborn==0.13.2          # Statistical plots on top of matplotlib :contentReference[oaicite:5]{index=5}
+pydeck==0.9.1            # Map visualizations used via st.pydeck_chart :contentReference[oaicite:6]{index=6}
+joblib==1.5.2            # Loading/saving models :contentReference[oaicite:7]{index=7}
+
+# Optional – only if your saved models / code actually use LightGBM
+lightgbm>=4.0.0          # Known to work with Python 3.11 :contentReference[oaicite:8]{index=8}
