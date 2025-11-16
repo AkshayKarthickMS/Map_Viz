@@ -484,7 +484,6 @@ if st.button("Run analysis (aggregate + model predict)"):
             chosen_model = lga_model
             chosen_features = lga_features
             chosen_report = precomputed_lga_report if precomputed_lga_report is not None else lga_feats_df[['LGA','total_children','dropoff_rate']].copy()
-            st.info("Using existing LGA model artifact (original).")
         else:
             chosen_model = None
             chosen_features = None
@@ -570,9 +569,9 @@ if st.button("Run analysis (aggregate + model predict)"):
         except Exception:
             lga_report['avg_pred'] = np.nan
 
-        st.subheader("Top LGAs by predicted dropoff_rate")
-        st.dataframe(lga_report.sort_values('predicted_dropoff_rate', ascending=False).head(50))
-        download_link(lga_report, "lga_report_from_app.csv", "Download LGA report (CSV)")
+        # st.subheader("Top LGAs by predicted dropoff_rate")
+        # st.dataframe(lga_report.sort_values('predicted_dropoff_rate', ascending=False).head(50))
+        # download_link(lga_report, "lga_report_from_app.csv", "Download LGA report (CSV)")
 
         # Child-level predictions
         if child_model is not None and child_features is not None:
@@ -692,7 +691,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # LGA centroid map with labels (pydeck)
         # -----------------------
-        st.subheader("LGA centroid priority map (builtin coords with labels)")
+        st.subheader("LGA centroid priority map")
         lga_report['LGA_match'] = lga_report['LGA'].astype(str).str.strip().str.upper()
         builtin_rows = [{"LGA_match": k.strip().upper(), "latitude": v["latitude"], "longitude": v["longitude"], "LGA_builtin": k} for k, v in BUILTIN_LGA_COORDS.items()]
         lga_coords_df = pd.DataFrame(builtin_rows)
@@ -821,10 +820,10 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # Prioritization & downloads
         # -----------------------
-        st.subheader("Prioritization & downloads")
-        risk_thresh = st.slider("LGA predicted dropoff rate threshold", 0.0, 1.0, 0.20, 0.01)
-        settlement_prob_thresh = st.slider("Settlement avg_prob threshold", 0.0, 1.0, 0.6, 0.01)
-        high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
+        st.subheader("Prioritization")
+        # risk_thresh = st.slider("LGA predicted dropoff rate threshold", 0.0, 1.0, 0.20, 0.01)
+        # settlement_prob_thresh = st.slider("Settlement avg_prob threshold", 0.0, 1.0, 0.6, 0.01)
+        # high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
         st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
         st.dataframe(high_lgas[['LGA','total_children','dropoff_rate','predicted_dropoff_rate','recommended_action']].head(200))
         download_link(high_lgas, "high_risk_lgas.csv", "Download high-risk LGAs CSV")
@@ -836,29 +835,29 @@ if st.button("Run analysis (aggregate + model predict)"):
             download_link(ssum, "high_risk_settlements.csv", "Download high-risk settlements CSV")
 
         # Save outputs to artifacts if user wants
-        if st.button("Save current LGA report & settlement outputs to ./artifacts/"):
-            lga_report.to_csv(ARTIFACTS / "lga_report_from_app.csv", index=False)
-            if 'settlement_agg' in locals():
-                settlement_agg.to_csv(ARTIFACTS / "settlement_priority_from_app.csv", index=False)
-            if 'pred_prob' in zd.columns:
-                zd.to_csv(ARTIFACTS / "child_predictions_from_app.csv", index=False)
-            st.success("Saved outputs to ./artifacts/")
+        # if st.button("Save current LGA report & settlement outputs to ./artifacts/"):
+        #     lga_report.to_csv(ARTIFACTS / "lga_report_from_app.csv", index=False)
+        #     if 'settlement_agg' in locals():
+        #         settlement_agg.to_csv(ARTIFACTS / "settlement_priority_from_app.csv", index=False)
+        #     if 'pred_prob' in zd.columns:
+        #         zd.to_csv(ARTIFACTS / "child_predictions_from_app.csv", index=False)
+        #     st.success("Saved outputs to ./artifacts/")
 
-        if st.button("Download available artifact files (zip)"):
-            to_zip = [p for p in [LGA_MODEL_FILE, LGA_FEATURES_FILE, LGA_MODEL_IMP, LGA_FEATURES_IMP, LGA_REPORT_IMP, CHILD_MODEL_FILE, CHILD_FEATURES_FILE] if p.exists()]
-            if to_zip:
-                save_zip_of(to_zip, "available_artifacts.zip")
-            else:
-                st.warning("No artifacts found to zip.")
+        # if st.button("Download available artifact files (zip)"):
+        #     to_zip = [p for p in [LGA_MODEL_FILE, LGA_FEATURES_FILE, LGA_MODEL_IMP, LGA_FEATURES_IMP, LGA_REPORT_IMP, CHILD_MODEL_FILE, CHILD_FEATURES_FILE] if p.exists()]
+        #     if to_zip:
+        #         save_zip_of(to_zip, "available_artifacts.zip")
+        #     else:
+        #         st.warning("No artifacts found to zip.")
     except Exception as e:
         st.error(f"Analysis failed: {e}")
         logger.exception(e)
 
 st.markdown("---")
-st.markdown("""
-**Notes & tips**
-- Labels can clutter maps; use the sidebar toggles (`Show LGA labels`, `Show settlement labels`) to enable/disable.
-- Settlement points are now coloured by their LGA (first 3 palette colours). If you want every LGA to have a unique colour, tell me and I'll expand the palette.
-- To further improve distinct shapes, provide a small set of icon URLs and use `IconLayer` for cluster-specific icons.
-- For model accuracy improvements: clean and enrich features (temporal vaccine trends, facility accessibility), and consider hierarchical shrinkage for small LGAs.
-""")
+# st.markdown("""
+# **Notes & tips**
+# - Labels can clutter maps; use the sidebar toggles (`Show LGA labels`, `Show settlement labels`) to enable/disable.
+# - Settlement points are now coloured by their LGA (first 3 palette colours). If you want every LGA to have a unique colour, tell me and I'll expand the palette.
+# - To further improve distinct shapes, provide a small set of icon URLs and use `IconLayer` for cluster-specific icons.
+# - For model accuracy improvements: clean and enrich features (temporal vaccine trends, facility accessibility), and consider hierarchical shrinkage for small LGAs.
+# """)
