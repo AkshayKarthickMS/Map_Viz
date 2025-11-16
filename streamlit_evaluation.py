@@ -625,7 +625,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # Settlement matching & clusters (now grouped by LGA colours)
         # -----------------------
-        st.subheader("Settlement matching & top-settlement priority")
+        st.subheader("Settlement with high priority")
         def lookup_settlement_coord(name: str) -> Tuple[Optional[float], Optional[float]]:
             if not isinstance(name, str) or name.strip() == "":
                 return (np.nan, np.nan)
@@ -830,9 +830,9 @@ if st.button("Run analysis (aggregate + model predict)"):
         if 'settlement_agg' in locals() and not settlement_agg.empty:
             ssum = settlement_agg.copy()
             ssum['high_risk_flag'] = ssum['avg_prob'] >= settlement_prob_thresh
-            st.markdown(f"**Settlements with high-risk children (avg_prob >= {settlement_prob_thresh:.2f})**")
-            st.dataframe(ssum.sort_values(['high_risk_children','avg_prob'], ascending=[False,False]).head(200))
-            download_link(ssum, "high_risk_settlements.csv", "Download high-risk settlements CSV")
+            # st.markdown(f"**Settlements with high-risk children (avg_prob >= {settlement_prob_thresh:.2f})**")
+            # st.dataframe(ssum.sort_values(['high_risk_children','avg_prob'], ascending=[False,False]).head(200))
+            # download_link(ssum, "high_risk_settlements.csv", "Download high-risk settlements CSV")
 
         # Save outputs to artifacts if user wants
         # if st.button("Save current LGA report & settlement outputs to ./artifacts/"):
