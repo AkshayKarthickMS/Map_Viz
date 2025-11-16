@@ -823,7 +823,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         st.subheader("Prioritization")
         # risk_thresh = st.slider("LGA predicted dropoff rate threshold", 0.0, 1.0, 0.20, 0.01)
         # settlement_prob_thresh = st.slider("Settlement avg_prob threshold", 0.0, 1.0, 0.6, 0.01)
-        # high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
+        high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
         st.markdown(f"**LGAs above threshold ({len(high_lgas)}):**")
         st.dataframe(high_lgas[['LGA','total_children','dropoff_rate','predicted_dropoff_rate','recommended_action']].head(200))
         download_link(high_lgas, "high_risk_lgas.csv", "Download high-risk LGAs CSV")
