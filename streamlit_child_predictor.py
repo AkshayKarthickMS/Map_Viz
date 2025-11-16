@@ -162,10 +162,10 @@ pipe_numeric, pipe_categorical, pipe_passthrough = inspect_pipeline_feature_grou
 # Build sets for numeric/categorical
 numeric_features = set(pipe_numeric)
 for c in pipe_passthrough:
-    if c.startswith('lga_vacc_') or c in REASON_FLAGS or c.startswith('rate_') or c in ['Distance to HF', 'estimated_age_months']:
+    if c.startswith('lga_vacc_') or c in REASON_FLAGS or c.startswith('rate_') or c in ['Distance to HF', 'Age in months']:
         numeric_features.add(c)
 for f in child_features:
-    if f in ['Distance to HF', 'estimated_age_months'] or f.startswith('lga_vacc_') or f.startswith('rate_') or f in REASON_FLAGS:
+    if f in ['Distance to HF', 'Age in months'] or f.startswith('lga_vacc_') or f.startswith('rate_') or f in REASON_FLAGS:
         numeric_features.add(f)
 numeric_features = sorted(numeric_features)
 
