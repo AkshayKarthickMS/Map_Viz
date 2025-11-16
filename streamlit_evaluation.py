@@ -436,8 +436,8 @@ do_retrain = False
 # retrain_button = st.sidebar.button("Run retrain now")
 
 # Map label toggles
-# show_lga_labels = st.sidebar.checkbox("Show LGA labels on map", value=True)
-# show_settlement_labels = st.sidebar.checkbox("Show settlement labels on map", value=False)
+show_lga_labels = True
+show_settlement_labels = False
 # n_clusters = st.sidebar.slider("Number of settlement clusters (unused for grouping-by-LGA)", 2, 8, 3)
 
 # Color palette for clusters (RGB lists)
