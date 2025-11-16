@@ -428,7 +428,7 @@ uploaded_geojson = GEOJSON_PATH if GEOJSON_PATH.exists() else None
 
 # Sidebar controls for retrain + map options
 # st.sidebar.header("Retrain & Map options")
-# do_retrain = st.sidebar.checkbox("Enable retrain", value=False)
+do_retrain = False
 # min_children = st.sidebar.number_input("min_children for training", min_value=1, value=5, step=1)
 # drop_small = st.sidebar.checkbox("Drop LGAs with < min_children", value=False)
 # cv_folds = st.sidebar.number_input("CV folds", min_value=2, max_value=10, value=5, step=1)
