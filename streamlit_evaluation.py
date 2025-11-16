@@ -661,12 +661,14 @@ if st.button("Run analysis (aggregate + model predict)"):
                 high_risk_children=('pred_prob', lambda s: (s >= 0.6).sum() if s.notna().any() else 0),
                 avg_prob=('pred_prob','mean')
             ).reset_index().sort_values(['high_risk_children','avg_prob'], ascending=[False,False])
+
             # attach coords
             def attach_coords(r):
                 lat, lon = lookup_settlement_coord(str(r['Settlement']))
                 return pd.Series({'latitude': lat, 'longitude': lon})
             coords_df = settlement_agg.apply(attach_coords, axis=1)
             settlement_agg = pd.concat([settlement_agg, coords_df], axis=1)
+
             # compute distance to LGA centroid (if builtin centroid exists)
             lga_centroid_map = {k.strip().upper(): v for k, v in BUILTIN_LGA_COORDS.items()}
             def dist_to_centroid(row):
@@ -678,8 +680,15 @@ if st.button("Run analysis (aggregate + model predict)"):
                     return np.nan
                 return haversine_km(lat, lon, cent['latitude'], cent['longitude'])
             settlement_agg['dist_to_lga_km'] = settlement_agg.apply(dist_to_centroid, axis=1)
+
+            # 🔹 precompute text version of avg_prob here so map can reuse it
+            settlement_agg['avg_prob_text'] = settlement_agg['avg_prob'].apply(
+                lambda x: f"{x:.2f}" if not pd.isna(x) else "n/a"
+            )
+
             st.dataframe(settlement_agg.head(200))
             download_link(settlement_agg, "settlement_priority.csv", "Download settlement priority CSV")
+
             # clustering settlements by location + avg_prob to help visualization (kept for continuity)
             pts_for_cluster = settlement_agg.dropna(subset=['latitude','longitude']).copy()
             if not pts_for_cluster.empty:
@@ -699,6 +708,7 @@ if st.button("Run analysis (aggregate + model predict)"):
             st.info("No 'Settlement' column in zerodose.csv — cannot compute per-settlement aggregates.")
             settlement_agg = pd.DataFrame()
             pts_for_cluster = pd.DataFrame()
+
 
         # -----------------------
         # LGA centroid map with labels (pydeck)
@@ -762,8 +772,12 @@ if st.button("Run analysis (aggregate + model predict)"):
         st.subheader("Settlement cluster map (grouped by LGA colours)")
         if not pts_for_cluster.empty:
             sp = pts_for_cluster.copy()
-            # precompute formatted avg_prob text for tooltip (important: do this BEFORE slicing into parts)
-            sp['avg_prob_text'] = sp['avg_prob'].apply(lambda x: f"{x:.2f}" if not pd.isna(x) else "n/a")
+
+            # 🔹 avg_prob_text already created in settlement_agg; just ensure it exists here
+            if 'avg_prob_text' not in sp.columns:
+                sp['avg_prob_text'] = sp['avg_prob'].apply(
+                    lambda x: f"{x:.2f}" if not pd.isna(x) else "n/a"
+                )
 
             # group by LGA and map to 3 colours
             sp['LGA_norm'] = sp['LGA'].astype(str).str.strip()
@@ -780,7 +794,6 @@ if st.button("Run analysis (aggregate + model predict)"):
             text_layers = []
             center_lat = float(sp['latitude'].median())
             center_lon = float(sp['longitude'].median())
-
             for lga in sorted(sp['LGA_norm'].unique()):
                 part = sp[sp['LGA_norm'] == lga].copy()
                 if part.empty:
@@ -814,11 +827,10 @@ if st.button("Run analysis (aggregate + model predict)"):
                         get_offset=[0, -12]
                     )
                     text_layers.append(tlay)
-
             all_layers = cluster_layers + text_layers
             view = pdk.ViewState(latitude=center_lat, longitude=center_lon, zoom=8, pitch=0)
 
-            # Tooltip now uses the precomputed avg_prob_text field
+            # Tooltip now uses avg_prob_text coming from "Settlement with High Priority" block
             tooltip = {
                 "html": "<b>{Settlement}</b><br/>"
                         "LGA: {LGA}<br/>"
@@ -833,18 +845,13 @@ if st.button("Run analysis (aggregate + model predict)"):
             legend_html = "<div style='display:flex;flex-wrap:wrap;padding:6px;'>"
             for lga, col in lga_to_color.items():
                 hexc = rgba_to_hex(col)
-                legend_html += (
-                    "<div style='margin-right:10px;margin-bottom:6px;"
-                    "display:flex;align-items:center'>"
-                    f"<div style='width:18px;height:18px;background:{hexc};"
-                    "border-radius:4px;margin-right:6px;'></div>"
-                    f"<div style='font-size:13px;color:#fff'>{lga}</div></div>"
-                )
+                legend_html += f"<div style='margin-right:10px;margin-bottom:6px;display:flex;align-items:center'><div style='width:18px;height:18px;background:{hexc};border-radius:4px;margin-right:6px;'></div><div style='font-size:13px;color:#fff'>{lga}</div></div>"
             legend_html += "</div>"
             st.markdown("**Legend: Settlement colour → LGA**")
             st.markdown(legend_html, unsafe_allow_html=True)
         else:
             st.info("No settlement coordinates matched from the internal list or not enough data for clustering.")
+
 
 
 
