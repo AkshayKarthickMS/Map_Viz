@@ -625,7 +625,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # Prioritization & downloads
         # -----------------------
-        st.subheader("Prioritization")
+        st.subheader("LGA Prioritization")
         risk_thresh = 0.20
         settlement_prob_thresh = 0.60
         high_lgas = lga_report[lga_report['predicted_dropoff_rate'] >= risk_thresh].sort_values('predicted_dropoff_rate', ascending=False)
@@ -637,7 +637,7 @@ if st.button("Run analysis (aggregate + model predict)"):
         # -----------------------
         # Settlement matching & clusters (now grouped by LGA colours)
         # -----------------------
-        st.subheader("Settlement with high priority")
+        st.subheader("Settlement with High Priority")
         def lookup_settlement_coord(name: str) -> Tuple[Optional[float], Optional[float]]:
             if not isinstance(name, str) or name.strip() == "":
                 return (np.nan, np.nan)
