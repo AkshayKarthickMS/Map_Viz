@@ -46,6 +46,18 @@ REASON_FLAGS = [
 ]
 
 st.set_page_config(page_title="Child Risk Predictor", layout="centered")
+# --- Hide Streamlit header/menu/footer (removes GitHub / "Made with Streamlit" icons) ---
+hide_streamlit_style = """
+    <style>
+      /* top-right hamburger menu */
+      #MainMenu {visibility: hidden;}
+      /* top header (contains icons in some Streamlit versions) */
+      header {visibility: hidden;}
+      /* bottom footer (Made with Streamlit / GitHub links) */
+      footer {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # ----------------------
 # Helpers
